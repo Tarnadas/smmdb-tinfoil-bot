@@ -2,23 +2,35 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const Entities = require("html-entities").AllHtmlEntities;
 const urlEncode = require("urlencode");
-// const fs = require("fs");
+const fs = require("fs");
 
 const entities = new Entities();
 const baseUrl = "https://api.smmdb.net";
-// const baseUrl = "http://localhost:3030";
 const downloadBaseUrl = "https://tinfoil.media/MarioMaker/Download";
+const authHeader = {
+  headers: {
+    Authorization: `APIKEY ${process.env.ACCOUNT_ID} ${process.env.APIKEY}`,
+  },
+};
 
-async function main() {
+async function main(useCache = false) {
   console.log("Downloading Tinfoil HTML...");
-  const response = await axios.get("https://tinfoil.io/MarioMaker");
-  const tinfoil = response.data;
-  console.log("Downloading Tinfoil HTML complete");
-  // const tinfoil = fs.readFileSync("../../Downloads/tinfoil.html");
+  let tinfoil;
+  if (useCache && fs.existsSync("tinfoil.html")) {
+    tinfoil = fs.readFileSync("tinfoil.html");
+    console.log("Using cached HTML file");
+  } else {
+    const response = await axios.get("https://tinfoil.io/MarioMaker");
+    tinfoil = response.data;
+    console.log("Downloading Tinfoil HTML complete");
+  }
+  if (useCache) {
+    fs.writeFileSync("tinfoil.html", tinfoil);
+  }
   const $ = cheerio.load(tinfoil);
   const tr = $("table tr");
 
-  for (let i = 0; i < tr.get().length; i++) {
+  for (let i = 12000; i < tr.get().length; i++) {
     try {
       const courseTr = tr.get(i);
       const courseA = $(courseTr).find("a[href]");
@@ -44,15 +56,32 @@ async function main() {
         if (courseDif) {
           putUrl += `?difficulty=${courseDif}`;
         }
-        const res = await axios.put(putUrl, courseRes.data, {
-          headers: {
-            Authorization: `APIKEY ${process.env.ACCOUNT_ID} ${process.env.APIKEY}`,
-          },
-        });
+        const res = await axios.put(putUrl, courseRes.data, authHeader);
         if (res.data.failed.length > 0) {
           console.info("Course failed uploading:", searchUrl);
           console.info("Reason:", res.data.failed);
+        } else {
+          console.info(
+            `Uploaded new course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`
+          );
         }
+      } else if (
+        courseDif &&
+        res.data.length === 1 &&
+        res.data[0].difficulty == null &&
+        res.data[0].owner === process.env.ACCOUNT_ID
+      ) {
+        console.info(
+          `Setting difficulty for course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`
+        );
+        const smmdbId = res.data[0].id;
+        await axios.post(
+          `${baseUrl}/courses2/meta/${smmdbId}`,
+          {
+            difficulty: courseDif,
+          },
+          authHeader
+        );
       }
     } catch (err) {
       if (err.response) {
