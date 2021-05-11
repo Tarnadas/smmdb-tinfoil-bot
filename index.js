@@ -1,10 +1,9 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
-const Entities = require("html-entities").AllHtmlEntities;
+const { decode } = require("html-entities");
 const urlEncode = require("urlencode");
 const fs = require("fs");
 
-const entities = new Entities();
 const baseUrl = "https://api.smmdb.net";
 const downloadBaseUrl = "https://tinfoil.media/MarioMaker/Download";
 const authHeader = {
@@ -30,7 +29,7 @@ async function main(useCache = false) {
   const $ = cheerio.load(tinfoil);
   const tr = $("table tr");
 
-  for (let i = 12000; i < tr.get().length; i++) {
+  for (let i = 30000; i < tr.get().length; i++) {
     try {
       const courseTr = tr.get(i);
       const courseA = $(courseTr).find("a[href]");
@@ -38,16 +37,16 @@ async function main(useCache = false) {
       if (courseDif && courseDif.trim()) {
         courseDif = courseDif.trim().replace(/ /g, "").toLowerCase();
       }
-      const name = entities.decode(String($(courseA).html()));
+      const name = decode(String($(courseA).html()));
       let courseId = $(courseA).attr("href").replace(/\\"/g, "").split("/");
       courseId = courseId[courseId.length - 1];
       const searchUrl = `${baseUrl}/courses2?title=${urlEncode(
-        name
+        name,
       )}&title_exact=true&title_case_sensitive=true`;
       const res = await axios.get(searchUrl);
       if (res.data.length === 0) {
         console.info(
-          `Found new course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`
+          `Found new course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`,
         );
         const courseRes = await axios.get(`${downloadBaseUrl}/${courseId}`, {
           responseType: "arraybuffer",
@@ -62,7 +61,7 @@ async function main(useCache = false) {
           console.info("Reason:", res.data.failed);
         } else {
           console.info(
-            `Uploaded new course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`
+            `Uploaded new course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`,
           );
         }
       } else if (
@@ -72,7 +71,7 @@ async function main(useCache = false) {
         res.data[0].owner === process.env.ACCOUNT_ID
       ) {
         console.info(
-          `Setting difficulty for course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`
+          `Setting difficulty for course: ${name}, ID: ${courseId}, Difficulty: ${courseDif}`,
         );
         const smmdbId = res.data[0].id;
         await axios.post(
@@ -80,7 +79,7 @@ async function main(useCache = false) {
           {
             difficulty: courseDif,
           },
-          authHeader
+          authHeader,
         );
       }
     } catch (err) {
