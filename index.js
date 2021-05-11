@@ -8,7 +8,7 @@ const baseUrl = "https://api.smmdb.net";
 const downloadBaseUrl = "https://tinfoil.media/MarioMaker/Download";
 const authHeader = {
   headers: {
-    Authorization: `APIKEY ${process.env.ACCOUNT_ID} ${process.env.APIKEY}`,
+    Authorization: `APIKEY ${process.env.APIKEY}`,
   },
 };
 
@@ -29,7 +29,7 @@ async function main(useCache = false) {
   const $ = cheerio.load(tinfoil);
   const tr = $("table tr");
 
-  for (let i = 30000; i < tr.get().length; i++) {
+  for (let i = 0; i < tr.get().length; i++) {
     try {
       const courseTr = tr.get(i);
       const courseA = $(courseTr).find("a[href]");
